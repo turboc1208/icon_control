@@ -34,12 +34,12 @@
 #                                             "notify":"EmailChip"}}
 #       
 #######################################################
-import appdaemon.appapi as appapi
+import appdaemon.plugins.hass.hassapi as hass
 import datetime
 import time
 import json
                
-class icon_control(appapi.AppDaemon):
+class icon_control(hass.Hass):
 
   def initialize(self):
     # self.LOGLEVEL="DEBUG"
@@ -52,11 +52,16 @@ class icon_control(appapi.AppDaemon):
     else:
       self.log("error entities must be specified in appdaemon.cfg")
     self.log("entities={}".format(self.entities))
+    if "interval" in self.args:
+      interval=self.args["interval"]
+    else:
+      interval=5
     for s in self.entities:
       self.listen_state(self.state_handler,s,attribute=self.entities[s]["attribute"])
     self.check_icon_state()
-    self.run_every(self.timer_handler,self.datetime(),5*60)
-    
+    self.run_every(self.timer_handler,self.datetime(),interval*60)
+    self.log("icon_control initialization complete")
+
   def timer_handler(self,kwargs):
     self.log("timer Check")
     self.check_icon_state()
@@ -75,14 +80,14 @@ class icon_control(appapi.AppDaemon):
         blist.append(b)
     for b in blist:
       s=self.entities[b]["attribute"]
-      result=self.get_state(b,s)
+      result=self.get_state(b,attribute=s)
       self.log("Entity {} is at {}%".format(b,result))
-      if (result==None) or (result==""):
+      if (result==None) or (result=="") or (result=="unknown") :
         self.log("Entity {} returned None skipping".format(b))
         continue
-      #self.log("entities[{}]['levels']={}".format(b,self.entities[b]))
+      self.log("entities[{}]['levels']={}".format(b,self.entities[b]))
       for level in sorted(self.entities[b]["levels"]):
-        #self.log("level={} result={}, level[value]={}".format(level,result,self.entities[b]["levels"][level]["value"]))
+        self.log("level={} result={}, level[value]={}".format(level,result,self.entities[b]["levels"][level]["value"]))
         if int(float(result))<=self.entities[b]["levels"][level]["value"]:
           self.set_state(b,attributes={"entity_picture":self.entities[b]["levels"][level]["img"]})
           break
